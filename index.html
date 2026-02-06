@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>五线谱记忆挑战</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --staff-bg: #ffffff;
+            --text-color: #333;
+            --accent-color: #4a90e2;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* 顶部控制栏 */
+        header {
+            padding: 15px 20px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            gap: 15px;
+        }
+
+        .header-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:active {
+            opacity: 0.8;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        select {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+        
+        label {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .stats {
+            display: flex;
+            gap: 15px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .life-heart {
+            color: var(--danger-color);
+        }
+
+        /* 游戏主区域 */
+        #game-container {
+            flex: 1;
+            position: relative;
+            background-color: var(--staff-bg);
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 底部键盘 */
+        footer {
+            padding: 5px 10px 3px;
+            background: #f8f8f8;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            bottom: 120px;
+            padding-bottom: max(15px, env(safe-area-inset-bottom));
+            position: relative;
+            height: 170px; /* 设置固定高度以容纳黑键 */
+        }
+        
+        /* 白键容器，用于定位黑键 */
+        .key-container {
+            flex: 1;
+            max-width: 60px;
+            min-width: 40px; /* 确保移动端有最小宽度 */
+            display: flex;
+            justify-content: center;
+            position: relative;
+            height: 100%;
+        }
+
+        /* 白键样式 */
+        .key-btn {
+            flex: 1;
+            max-width: 60px;
+            min-width: 40px; /* 移动端最小宽度 */
+            height: 150px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 0 0 8px 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 2px 0 #ddd;
+            transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s;
+            position: relative;
+            z-index: 1;
+            padding-bottom: 5px;
+            -webkit-tap-highlight-color: transparent; /* 移除移动端点击高亮 */
+        }
+
+        .key-btn:active {
+            transform: translateY(2px);
+            box-shadow: none;
+            background-color: #f0f0f0;
+        }
+        
+        /* 黑键样式 */
+        .key-btn.black-key {
+            width: 50%; /* 宽度为白键的1/2 */
+            height: 80px; /* 高度为白键150px的2/5 = 60px */
+            background-color: #222;
+            color: white;
+            border: none;
+            border-radius: 0 0 5px 5px;
+            position: absolute;
+            z-index: 2;
+            left: 100%; /* 定位在当前白键容器的右侧边缘 */
+            transform: translateX(-50%); /* 向左移动自身宽度的一半，实现居中 */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            font-size: 12px;
+            justify-content: center;
+            padding: 0;
+            max-width: none;
+        }
+        
+        .key-btn.black-key:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            background-color: #444;
+        }
+        
+
+
+        .key-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        .solfege {
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* 连击提示 */
+        #combo-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--accent-color);
+            opacity: 0;
+            pointer-events: none;
+            text-shadow: 2px 2px 0px white;
+        }
+
+        @keyframes pop {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        }
+
+        .combo-anim {
+            animation: pop 0.5s ease-out forwards;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 600px) {
+            header {
+                font-size: 12px;
+                padding: 10px;
+            }
+            .header-group {
+                gap: 10px;
+            }
+            .header-group > * {
+                margin: 5px 0;
+            }
+            button {
+                padding: 8px 12px;
+                font-size: 13px;
+                min-height: 36px;
+            }
+            select {
+                padding: 6px 8px;
+                font-size: 13px;
+            }
+            .stats {
+                font-size: 14px;
+                gap: 8px;
+            }
+            #game-container {
+                flex: 1;
+                padding: 10px;
+            }
+            footer {
+                height: 100px;
+            }
+            .key-btn {
+                height: 90px;
+            }
+            .key-btn.black-key {
+                height: 36px; /* 移动端白键高度90px的2/5 = 36px */
+                width: 50%; /* 保持与白键宽度的50%比例 */
+                left: 100%; /* 保持相同的定位逻辑 */
+                transform: translateX(-50%); /* 保持相同的居中逻辑 */
+            }
+            .key-name {
+                font-size: 14px;
+            }
+            .solfege {
+                font-size: 10px;
+            }
+        }
+        
+        @media (max-width: 400px) {
+            header {
+                font-size: 11px;
+                padding: 6px 8px;
+            }
+            button {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            .key-btn {
+                height: 80px;
+            }
+            .key-name {
+                font-size: 12px;
+            }
+        }
+
+        /* 自定义音阶选择弹窗样式 */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .modal .close-btn {
+            font-size: 24px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: #666;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .scale-groups {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .scale-group h3 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #555;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 5px;
+        }
+
+        .scale-checkboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .octave-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            width: 100%;
+        }
+        
+        .octave-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .scale-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+        }
+
+        .scale-checkbox-item input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .confirm-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .confirm-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        /* 游戏结束弹窗样式 */
+        .game-over-content {
+            text-align: center;
+            padding: 20px 0;
+        }
+        
+        .game-over-content p {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .final-score {
+            font-size: 48px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 20px 0;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 600px) {
+            .modal-content {
+                width: 95%;
+                max-height: 90vh;
+            }
+
+            .scale-checkboxes {
+                grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-group">
+            <button id="start-btn">开始</button>
+            <label>难度</label>
+            <select id="difficulty">
+                <option value="easy">简单</option>
+                <option value="medium" selected>中等</option>
+                <option value="hard">困难</option>
+            </select>
+            <label>音区</label>
+            <select id="note-area">
+                <option value="treble" selected>高</option>
+                <option value="bass">低</option>
+                <option value="both">高低</option>
+                <option value="custom">自定义</option>
+            </select>
+            <label>
+                <input type="checkbox" id="hint-toggle"><label>音名</label>
+            </label>
+            <label>
+                <input type="checkbox" id="note-numbers-toggle" disabled><label>音阶</label>
+            </label>
+            <label>
+                <input type="checkbox" id="color-mode-toggle"><label>彩色</label>
+            </label>
+        </div>
+        <div class="stats">
+            <div class="stat-item">分数<span id="score">0</span></div>
+            <div class="stat-item">生命<span id="lives">♥♥♥</span></div>
+        </div>
+    </header>
+
+    <!-- 自定义音阶选择弹窗 -->
+    <div id="custom-scale-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>自定义音阶选择</h2>
+                <button id="close-modal-btn" class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="scale-groups">
+                    <div class="scale-group">
+                        <h3>高音区 (B3 - A5)</h3>
+                        <div class="scale-checkboxes" id="treble-scales">
+                            <!-- 高音区音阶复选框将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    <div class="scale-group">
+                        <h3>低音区 (E2 - A3)</h3>
+                        <div class="scale-checkboxes" id="bass-scales">
+                            <!-- 低音区音阶复选框将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-scale-btn" class="btn confirm-btn" disabled>确定</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 游戏结束弹窗 -->
+    <div id="game-over-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>游戏结束</h2>
+                <button id="close-game-over-btn" class="close-btn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="game-over-content">
+                    <p>最终得分:</p>
+                    <div id="final-score" class="final-score"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="combo-display">Combo!</div>
+    </div>
+
+    <footer>
+        <!-- 白键容器，每个容器包含一个白键和可能的黑键 -->
+        <div class="key-container">
+            <!-- C 白键 -->
+            <button class="key-btn" data-note="C">
+                <span class="key-name">C</span>
+                <span class="solfege">do</span>
+            </button>
+            
+            <!-- CD 黑键 - 位于 C 白键的右侧 -->
+            <button class="key-btn black-key" data-note="C#">
+            </button>
+        </div>
+        
+        <div class="key-container">
+            <!-- D 白键 -->
+            <button class="key-btn" data-note="D">
+                <span class="key-name">D</span>
+                <span class="solfege">re</span>
+            </button>
+            
+            <!-- DE 黑键 - 位于 D 白键的右侧 -->
+            <button class="key-btn black-key" data-note="D#">
+            </button>
+        </div>
+        
+        <div class="key-container">
+            <!-- E 白键 -->
+            <button class="key-btn" data-note="E">
+                <span class="key-name">E</span>
+                <span class="solfege">mi</span>
+            </button>
+            <!-- 无黑键 -->
+        </div>
+        
+        <div class="key-container">
+            <!-- F 白键 -->
+            <button class="key-btn" data-note="F">
+                <span class="key-name">F</span>
+                <span class="solfege">fa</span>
+            </button>
+            
+            <!-- FG 黑键 - 位于 F 白键的右侧 -->
+            <button class="key-btn black-key" data-note="F#">
+            </button>
+        </div>
+        
+        <div class="key-container">
+            <!-- G 白键 -->
+            <button class="key-btn" data-note="G">
+                <span class="key-name">G</span>
+                <span class="solfege">so</span>
+            </button>
+            
+            <!-- GA 黑键 - 位于 G 白键的右侧 -->
+            <button class="key-btn black-key" data-note="G#">
+            </button>
+        </div>
+        
+        <div class="key-container">
+            <!-- A 白键 -->
+            <button class="key-btn" data-note="A">
+                <span class="key-name">A</span>
+                <span class="solfege">la</span>
+            </button>
+            
+            <!-- AB 黑键 - 位于 A 白键的右侧 -->
+            <button class="key-btn black-key" data-note="A#">
+            </button>
+        </div>
+        
+        <div class="key-container">
+            <!-- B 白键 -->
+            <button class="key-btn" data-note="B">
+                <span class="key-name">B</span>
+                <span class="solfege">si</span>
+            </button>
+            <!-- 无黑键 -->
+        </div>
+    </footer>
+
+    <script>
+        // === 配置 ===
+        const CONFIG = {
+            difficulties: {
+                easy: { 
+                    duration: { min: 9000, max: 12000 }, // 音符穿过屏幕的时长范围（毫秒）
+                    spawnInterval: 3000 // 3秒出1个
+                },
+                medium: { 
+                    duration: { min: 7000, max: 9000 },
+                    spawnInterval: 2300 // 2.3秒出1个
+                },
+                hard: { 
+                    duration: { min: 5000, max: 7000 },
+                    spawnInterval: 1500 // 1.5秒出1个
+                }
+            },
+            staffLineSpacing: 14, // 五线谱线间距
+            staffGap: 84,        // 上下谱表间距，调整为有足够空间容纳中间的音符
+            noteRadius: 7         // 音符半径
+        };
+
+        // === 音效系统 ===
+        let audioContext;
+        
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        
+        function playNote(frequency, duration = 600) {
+            if (!audioContext) {
+                initAudio();
+            }
+            
+            // 恢复音频上下文（如果被暂停）
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.value = frequency;
+            
+            // 设置音量包络
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration / 1000);
+        }
+        
+        // 音符频率映射（基于十二平均律，A4 = 440Hz）
+        const NOTE_FREQUENCIES = {
+            'C0': 16.35, 'C#0': 17.32, 'Db0': 17.32, 'D0': 18.35, 'D#0': 19.45, 'Eb0': 19.45, 'E0': 20.60, 'F0': 21.83, 'F#0': 23.12, 'Gb0': 23.12, 'G0': 24.50, 'G#0': 25.96, 'Ab0': 25.96, 'A0': 27.50, 'A#0': 29.14, 'Bb0': 29.14, 'B0': 30.87,
+            'C1': 32.70, 'C#1': 34.65, 'Db1': 34.65, 'D1': 36.71, 'D#1': 38.89, 'Eb1': 38.89, 'E1': 41.20, 'F1': 43.65, 'F#1': 46.25, 'Gb1': 46.25, 'G1': 49.00, 'G#1': 51.91, 'Ab1': 51.91, 'A1': 55.00, 'A#1': 58.27, 'Bb1': 58.27, 'B1': 61.74,
+            'C2': 65.41, 'C#2': 69.30, 'Db2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'Eb2': 77.78, 'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'Gb2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'Ab2': 103.83, 'A2': 110.00, 'A#2': 116.54, 'Bb2': 116.54, 'B2': 123.47,
+            'C3': 130.81, 'C#3': 138.59, 'Db3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'Eb3': 155.56, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.00, 'Gb3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'Ab3': 207.65, 'A3': 220.00, 'A#3': 233.08, 'Bb3': 233.08, 'B3': 246.94,
+            'C4': 261.63, 'C#4': 277.18, 'Db4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'Eb4': 311.13, 'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'Gb4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'Ab4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'Bb4': 466.16, 'B4': 493.88,
+            'C5': 523.25, 'C#5': 554.37, 'Db5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'Eb5': 622.25, 'E5': 659.25, 'F5': 698.46, 'F#5': 739.99, 'Gb5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'Ab5': 830.61, 'A5': 880.00, 'A#5': 932.33, 'Bb5': 932.33, 'B5': 987.77,
+            'C6': 1046.50, 'C#6': 1108.73, 'Db6': 1108.73, 'D6': 1174.66, 'D#6': 1244.51, 'Eb6': 1244.51, 'E6': 1318.51, 'F6': 1396.91, 'F#6': 1479.98, 'Gb6': 1479.98, 'G6': 1567.98, 'G#6': 1661.22, 'Ab6': 1661.22, 'A6': 1760.00, 'A#6': 1864.66, 'Bb6': 1864.66, 'B6': 1975.53,
+            'C7': 2093.00, 'C#7': 2217.46, 'Db7': 2217.46, 'D7': 2349.32, 'D#7': 2489.02, 'Eb7': 2489.02, 'E7': 2637.02, 'F7': 2793.83, 'F#7': 2959.96, 'Gb7': 2959.96, 'G7': 3135.96, 'G#7': 3322.44, 'Ab7': 3322.44, 'A7': 3520.00, 'A#7': 3729.31, 'Bb7': 3729.31, 'B7': 3951.07,
+            'C8': 4186.01, 'C#8': 4434.92, 'Db8': 4434.92, 'D8': 4698.64, 'D#8': 4978.03, 'Eb8': 4978.03
+        };
+
+        // === 状态管理 ===
+        const state = {
+            isPlaying: false,
+            score: 0,
+            lives: 3,
+            combo: 0,
+            notes: [], // 屏幕上的音符
+            explosions: [], // 爆炸效果
+            disappearances: [], // 消失动画
+            lastSpawnTime: 0,
+            difficulty: 'medium',
+            showHints: false,
+            showNoteNumbers: false, // 显示音名数字（如 C4、D4）
+            colorMode: false, // 彩色模式
+            noteArea: 'treble', // 'treble' 高音区, 'bass' 低音区, 'both' 都出, 'custom' 自定义
+            selectedScales: [], // 自定义模式下选中的音阶
+            isCustomMode: false, // 是否为自定义模式
+            animationId: null,
+            lastFrameTime: 0, // 用于计算帧率
+            inputLockedUntil: 0, // 输入锁定时间戳（0表示未锁定）
+            eliminatedNotes: 0, // 消除的音符数量
+            speedLevel: 0, // 速度等级
+            speedIncreaseThreshold: 10 // 每消除10个音符提升一次速度
+        };
+
+        // === DOM 元素 ===
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('start-btn');
+        const scoreEl = document.getElementById('score');
+        const livesEl = document.getElementById('lives');
+        const difficultySelect = document.getElementById('difficulty');
+        const hintToggle = document.getElementById('hint-toggle');
+        const noteAreaSelect = document.getElementById('note-area');
+        const noteNumbersToggle = document.getElementById('note-numbers-toggle');
+        const colorModeToggle = document.getElementById('color-mode-toggle');
+        const comboDisplay = document.getElementById('combo-display');
+        const keys = document.querySelectorAll('.key-btn');
+        
+        // 自定义音阶选择弹窗元素
+        const customScaleModal = document.getElementById('custom-scale-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const confirmScaleBtn = document.getElementById('confirm-scale-btn');
+        const bassScalesContainer = document.getElementById('bass-scales');
+        const trebleScalesContainer = document.getElementById('treble-scales');
+        
+        // 游戏结束弹窗元素
+        const gameOverModal = document.getElementById('game-over-modal');
+        const closeGameOverBtn = document.getElementById('close-game-over-btn');
+        const finalScoreEl = document.getElementById('final-score');
+
+        // === 动画类 ===
+        class Explosion {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.radius = 0;
+                this.maxRadius = 30;
+                this.life = 1.0;
+                this.particles = [];
+                
+                // 创建粒子
+                for (let i = 0; i < 8; i++) {
+                    const angle = (Math.PI * 2 * i) / 8;
+                    this.particles.push({
+                        x: this.x,
+                        y: this.y,
+                        vx: Math.cos(angle) * (Math.random() * 3 + 2),
+                        vy: Math.sin(angle) * (Math.random() * 3 + 2),
+                        life: 1.0
+                    });
+                }
+            }
+            
+            update(deltaTime) {
+                // 基于时间的更新，使用标准化的时间比例（假设60fps为标准）
+                const timeScale = deltaTime / 16.67;
+                this.life -= 0.05 * timeScale;
+                this.radius = this.maxRadius * (1 - this.life);
+                
+                // 更新粒子
+                this.particles.forEach(particle => {
+                    particle.life -= 0.08 * timeScale;
+                    particle.x += particle.vx * timeScale;
+                    particle.y += particle.vy * timeScale;
+                });
+            }
+            
+            draw(ctx) {
+                const alpha = Math.max(0, this.life);
+                
+                // 绘制粒子
+                this.particles.forEach(particle => {
+                    const particleAlpha = particle.life;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${particleAlpha * 0.8})`;
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = `rgba(231, 76, 60, ${particleAlpha * 0.6})`;
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, 1, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                // 绘制外圈
+                ctx.strokeStyle = `rgba(231, 76, 60, ${alpha})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+        
+        class Disappearance {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.radius = CONFIG.noteRadius;
+                this.life = 1.0;
+                this.scale = 1.0;
+            }
+            
+            update(deltaTime) {
+                // 基于时间的更新，使用标准化的时间比例（假设60fps为标准）
+                const timeScale = deltaTime / 16.67;
+                this.life -= 0.06 * timeScale; // 减慢消失速度
+                this.scale = 1.0 + (1 - this.life) * 2;
+            }
+            
+            draw(ctx) {
+                const alpha = Math.max(0, this.life);
+                
+                ctx.fillStyle = `rgba(74, 144, 226, ${alpha * 0.6})`;
+                ctx.globalCompositeOperation = 'screen';
+                
+                // 绘制缩放的圆
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * this.scale, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 绘制中心亮点
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.globalCompositeOperation = 'source-over';
+            }
+        }
+        
+        function createExplosion(x, y, color) {
+            state.explosions.push(new Explosion(x, y, color));
+        }
+        
+        function createDisappearance(x, y, color) {
+            state.disappearances.push(new Disappearance(x, y, color));
+        }
+        
+        // === 工具函数 ===
+        function getRandomSaturatedColor() {
+            // 生成随机但饱和的颜色，确保不会与五线谱混淆
+            // 避开黄色 (45-75) 和灰色 (饱和度过低)
+            let hue;
+            do {
+                hue = Math.floor(Math.random() * 360);
+            } while (hue >= 45 && hue <= 75); // 避开黄色区间
+            
+            return `hsl(${hue}, 80%, 45%)`; // 提高饱和度，略微降低亮度
+        }
+
+        // === 游戏逻辑类 ===
+        class Note {
+            constructor(clef, noteData, speedPerMs) {
+                this.clef = clef; // 'treble' or 'bass'
+                this.name = noteData.name;
+                this.fullName = noteData.fullName; // 完整的音名，包含八度信息
+                this.offset = noteData.offset; // offset from Middle C
+                this.reverse = noteData.reverse || false; // 是否反转，默认false
+                this.x = canvas.width + 50;
+                this.speedPerMs = speedPerMs; // 速度：像素/毫秒
+                this.id = Math.random().toString(36).substr(2, 9);
+                this.eliminated = false;
+                this.color = getRandomSaturatedColor(); // 生成随机饱和颜色
+            }
+
+            update(deltaTime) {
+                this.x -= this.speedPerMs * deltaTime;
+            }
+
+            draw(ctx, staffCenterY) {
+                // 计算Y坐标
+                // 每一级 offset 对应半个间距的高度变化
+                // 高音谱号 Middle C (offset 0) 在 staffCenterY + 5 * spacing (假设 staffCenterY 是谱表中心 B4? 不，我们要定锚点)
+                
+                // 让我们定义 staffCenterY 为该谱表的 "中心线" 位置
+                // 高音谱表中心线是 B4 (Offset 6). 
+                // 低音谱表中心线是 D3 (Offset -6).
+                
+                let centerOffset = (this.clef === 'treble') ? 6 : -6;
+                let stepsFromCenter = this.offset - centerOffset;
+                
+                // Y轴向下是增加，音高向上是增加，所以是减去
+                let y = staffCenterY - (stepsFromCenter * (CONFIG.staffLineSpacing / 2));
+                
+                this.y = y; // Save for debugging or strict collision if needed
+
+                // 选择颜色：彩色模式下使用随机颜色，否则使用黑色
+                const noteColor = state.colorMode ? this.color : '#000000';
+
+                // 绘制音符头 (实心椭圆)
+                ctx.fillStyle = noteColor;
+                ctx.beginPath();
+                // 根据 reverse 属性决定旋转角度
+                let rotationAngle = -0.2 + (this.reverse ? Math.PI : 0);
+                ctx.ellipse(this.x, y, CONFIG.noteRadius + 1, CONFIG.noteRadius - 1, rotationAngle, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = 'black'; // 恢复默认颜色
+
+                // 绘制符干 (Stem)
+                ctx.strokeStyle = noteColor;
+                ctx.beginPath();
+                ctx.lineWidth = 1.5;
+                let stemHeight = 35;
+                
+                // 根据 reverse 属性决定符干方向
+                // reverse 为 false 时，符干向上；为 true 时，符干向下（旋转）
+                let shouldDrawStemUp = !this.reverse;
+
+                if (!shouldDrawStemUp) {
+                    // Stem Down (Left side)
+                    ctx.moveTo(this.x - CONFIG.noteRadius, y);
+                    ctx.lineTo(this.x - CONFIG.noteRadius, y + stemHeight);
+                } else {
+                    // Stem Up (Right side)
+                    ctx.moveTo(this.x + CONFIG.noteRadius, y);
+                    ctx.lineTo(this.x + CONFIG.noteRadius, y - stemHeight);
+                }
+                ctx.stroke();
+                ctx.strokeStyle = 'black'; // 恢复默认颜色
+
+                // 绘制加线 (Ledger Lines)
+                // Treble Lines: E4(2) to F5(11). 
+                // Bass Lines: G2(-10) to A3(-2).
+                
+                // 简单算法：判断当前音高是否超出了五线谱范围
+                // Treble: range [2, 10] are on/between lines. < 2 needs lower lines. > 10 needs upper lines.
+                // Bass: range [-10, -2] are on/between lines. < -10 needs lower. > -2 needs upper.
+                
+                let lineStep = CONFIG.staffLineSpacing;
+                
+                if (this.clef === 'treble') {
+                    // Middle C (0) needs line at 0.
+                    // A5 (12) needs line at 12.
+                    if (this.offset <= 0) { // Middle C or lower
+                     for (let i = 0; i >= this.offset; i -= 2) {
+                         this.drawLedgerLine(ctx, staffCenterY - ((i - 6) * lineStep / 2));
+                     }
+                }
+                if (this.offset >= 12) { // A5 or higher
+                    for (let i = 12; i <= this.offset; i += 2) {
+                        this.drawLedgerLine(ctx, staffCenterY - ((i - 6) * lineStep / 2));
+                    }
+                }
+                } else {
+                    // Bass
+                    // Middle C (0) needs line at 0.
+                    // Low E (-12) needs line at -12.
+                    if (this.offset >= 0) { // Middle C or higher
+                        for (let i = 0; i <= this.offset; i += 2) {
+                            this.drawLedgerLine(ctx, staffCenterY - ((i - (-6)) * lineStep / 2));
+                        }
+                    }
+                    if (this.offset <= -12) { // Low E or lower
+                        for (let i = -12; i >= this.offset; i -= 2) {
+                            this.drawLedgerLine(ctx, staffCenterY - ((i - (-6)) * lineStep / 2));
+                        }
+                    }
+                }
+
+                // 绘制提示 - 与音符同色且更大
+                if (state.showHints) {
+                    ctx.fillStyle = noteColor; // 与音符同色
+                    ctx.font = 'bold 18px Arial'; // 字体更大
+                    ctx.textAlign = 'center';
+                    
+                    // 根据 reverse 属性决定文字位置
+                    // reverse 为 false 时，文字在下方；为 true 时，文字在上方
+                    let textY = this.reverse ? y - 15 : y + 25;
+                    
+                    // 根据状态决定显示内容
+                    let displayText = this.name;
+                    if (state.showNoteNumbers) {
+                        // 直接使用预定义的完整音名
+                        displayText = this.fullName;
+                    }
+                    
+                    ctx.fillText(displayText, this.x, textY);
+                    ctx.fillStyle = 'black'; // 恢复默认颜色
+                }
+            }
+
+            drawLedgerLine(ctx, y) {
+                // 选择颜色：彩色模式下使用随机颜色，否则使用黑色
+                const noteColor = state.colorMode ? this.color : '#000000';
+                ctx.strokeStyle = noteColor; // 加线也使用相同颜色
+                ctx.beginPath();
+                ctx.moveTo(this.x - 12, y);
+                ctx.lineTo(this.x + 12, y);
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.strokeStyle = 'black'; // 恢复默认颜色
+            }
+        }
+
+        // === 自定义音阶选择逻辑 ===
+        
+        // 定义完整的音阶列表（E2到A5）
+        const ALL_SCALES = {
+            treble: [
+                { name: 'B', offset: -1, fullName: 'B3', reverse: false },
+                { name: 'C', offset: 0, fullName: 'C4', reverse: false },
+                { name: 'D', offset: 1, fullName: 'D4', reverse: false },
+                { name: 'E', offset: 2, fullName: 'E4', reverse: false },
+                { name: 'F', offset: 3, fullName: 'F4', reverse: false },
+                { name: 'G', offset: 4, fullName: 'G4', reverse: false },
+                { name: 'A', offset: 5, fullName: 'A4', reverse: false },
+                { name: 'B', offset: 6, fullName: 'B4', reverse: false },
+                { name: 'C', offset: 7, fullName: 'C5', reverse: true },
+                { name: 'D', offset: 8, fullName: 'D5', reverse: true },
+                { name: 'E', offset: 9, fullName: 'E5', reverse: true },
+                { name: 'F', offset: 10, fullName: 'F5', reverse: true },
+                { name: 'G', offset: 11, fullName: 'G5', reverse: true },
+                { name: 'A', offset: 12, fullName: 'A5', reverse: true }
+            ],
+            bass: [
+                { name: 'E', offset: -12, fullName: 'E2', reverse: false },
+                { name: 'F', offset: -11, fullName: 'F2', reverse: false },
+                { name: 'G', offset: -10, fullName: 'G2', reverse: false },
+                { name: 'A', offset: -9, fullName: 'A2', reverse: false },
+                { name: 'B', offset: -8, fullName: 'B2', reverse: false },
+                { name: 'C', offset: -7, fullName: 'C3', reverse: false },
+                { name: 'D', offset: -6, fullName: 'D3', reverse: true },
+                { name: 'E', offset: -5, fullName: 'E3', reverse: true },
+                { name: 'F', offset: -4, fullName: 'F3', reverse: true },
+                { name: 'G', offset: -3, fullName: 'G3', reverse: true },
+                { name: 'A', offset: -2, fullName: 'A3', reverse: true },
+                { name: 'B', offset: -1, fullName: 'B3', reverse: true },
+                { name: 'C', offset: 0, fullName: 'C4', reverse: true },
+                { name: 'D', offset: 1, fullName: 'D4', reverse: true },
+            ]
+        };
+        
+        // 动态生成音阶复选框
+        function generateScaleCheckboxes() {
+            // 清空现有内容
+            bassScalesContainer.innerHTML = '';
+            trebleScalesContainer.innerHTML = '';
+            
+            // 按八度分组生成音阶复选框
+            function generateScalesByOctave(scales, container) {
+                // 按八度分组
+                const octaveGroups = {};
+                scales.forEach(scale => {
+                    const octave = scale.fullName.charAt(1); // 获取八度数字
+                    if (!octaveGroups[octave]) {
+                        octaveGroups[octave] = [];
+                    }
+                    octaveGroups[octave].push(scale);
+                });
+                
+                // 获取八度键并按从高到低排序
+                const octaveKeys = Object.keys(octaveGroups).sort((a, b) => b - a);
+                
+                // 生成每个八度的行
+                octaveKeys.forEach(octave => {
+                    const row = document.createElement('div');
+                    row.className = 'octave-row';
+                    
+                    const title = document.createElement('div');
+                    title.className = 'octave-title';
+                    title.textContent = `${octave}八度`;
+                    row.appendChild(title);
+                    
+                    // 对每个八度内的音符按音高从高到低排序
+                    octaveGroups[octave].sort((a, b) => b.offset - a.offset);
+                    
+                    octaveGroups[octave].forEach(scale => {
+                        // 为高音和低音区的相同音符创建不同的ID
+                        const checkboxId = container.id === 'treble-scales' ? 
+                            `scale-treble-${scale.fullName}` : 
+                            `scale-bass-${scale.fullName}`;
+                        
+                        const checkboxItem = document.createElement('div');
+                        checkboxItem.className = 'scale-checkbox-item';
+                        checkboxItem.innerHTML = `
+                            <input type="checkbox" id="${checkboxId}" data-fullname="${scale.fullName}" data-offset="${scale.offset}" data-reverse="${scale.reverse}" data-clef="${container.id === 'treble-scales' ? 'treble' : 'bass'}">
+                            <label for="${checkboxId}">${scale.fullName}</label>
+                        `;
+                        row.appendChild(checkboxItem);
+                    });
+                    
+                    container.appendChild(row);
+                });
+            }
+            
+            // 生成高音区音阶复选框（先排高音）
+            generateScalesByOctave(ALL_SCALES.treble, trebleScalesContainer);
+            
+            // 生成低音区音阶复选框
+            generateScalesByOctave(ALL_SCALES.bass, bassScalesContainer);
+            
+            // 添加复选框变化事件监听器
+            const allCheckboxes = document.querySelectorAll('.scale-checkbox-item input[type="checkbox"]');
+            allCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateConfirmButtonState);
+            });
+        }
+        
+        // 更新确定按钮状态
+        function updateConfirmButtonState() {
+            const checkedCheckboxes = document.querySelectorAll('.scale-checkbox-item input[type="checkbox"]:checked');
+            confirmScaleBtn.disabled = checkedCheckboxes.length === 0;
+        }
+        
+        // 显示弹窗
+        function showCustomScaleModal() {
+            generateScaleCheckboxes();
+            customScaleModal.classList.add('show');
+        }
+        
+        // 隐藏弹窗
+        function hideCustomScaleModal() {
+            customScaleModal.classList.remove('show');
+        }
+        
+        // 确认选择
+        function confirmCustomScales() {
+            const checkedCheckboxes = document.querySelectorAll('.scale-checkbox-item input[type="checkbox"]:checked');
+            const selectedScales = [];
+            
+            checkedCheckboxes.forEach(checkbox => {
+                selectedScales.push({
+                    fullName: checkbox.dataset.fullname,
+                    offset: parseInt(checkbox.dataset.offset),
+                    reverse: checkbox.dataset.reverse === 'true',
+                    clef: checkbox.dataset.clef // 保存谱号信息
+                });
+            });
+            
+            state.selectedScales = selectedScales;
+            state.isCustomMode = true;
+            
+            // 根据选中的音阶决定显示哪些谱表
+            const hasBassScales = selectedScales.some(scale => scale.clef === 'bass');
+            const hasTrebleScales = selectedScales.some(scale => scale.clef === 'treble');
+            
+            if (hasBassScales && hasTrebleScales) {
+                state.noteArea = 'both';
+            } else if (hasBassScales) {
+                state.noteArea = 'bass';
+            } else if (hasTrebleScales) {
+                state.noteArea = 'treble';
+            } else {
+                // 没有选中任何音阶，默认为高音区
+                state.noteArea = 'treble';
+                state.isCustomMode = false;
+            }
+            
+            hideCustomScaleModal();
+        }
+        
+        // 退出自定义模式
+        function exitCustomMode() {
+            hideCustomScaleModal();
+            noteAreaSelect.value = 'treble';
+            state.noteArea = 'treble';
+            state.isCustomMode = false;
+            state.selectedScales = [];
+        }
+        
+        // 游戏结束弹窗逻辑
+        function showGameOverModal(score) {
+            finalScoreEl.textContent = score;
+            gameOverModal.classList.add('show');
+        }
+        
+        function hideGameOverModal() {
+            gameOverModal.classList.remove('show');
+        }
+
+        // === 核心逻辑 ===
+
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            startBtn.addEventListener('click', startGame);
+            
+            // 绑定键盘/按钮事件
+            keys.forEach(btn => {
+                const note = btn.dataset.note;
+                // 支持触摸和鼠标点击
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault(); // 防止双击缩放和滚动
+                    handleInput(note);
+                    btn.classList.add('active'); // 模拟点击效果
+                    setTimeout(() => btn.classList.remove('active'), 100);
+                }, { passive: false }); // 确保preventDefault生效
+                
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                }, { passive: false });
+                
+                btn.addEventListener('mousedown', (e) => {
+                    handleInput(note);
+                    btn.classList.add('active');
+                });
+                
+                btn.addEventListener('mouseup', (e) => {
+                    btn.classList.remove('active');
+                });
+            });
+
+            // 键盘支持 (PC)
+            window.addEventListener('keydown', (e) => {
+                if (!state.isPlaying) return;
+                const key = e.key.toUpperCase();
+                if (['C','D','E','F','G','A','B'].includes(key)) {
+                    // 简单的视觉反馈
+                    const btn = document.querySelector(`button[data-note="${key}"]`);
+                    if(btn) {
+                        btn.style.backgroundColor = '#f0f0f0';
+                        setTimeout(() => btn.style.backgroundColor = 'white', 100);
+                    }
+                    handleInput(key);
+                }
+            });
+
+            difficultySelect.addEventListener('change', (e) => {
+                state.difficulty = e.target.value;
+            });
+
+            hintToggle.addEventListener('change', (e) => {
+                state.showHints = e.target.checked;
+                // 只有当显示音名时，才能选择是否显示音名数字
+                noteNumbersToggle.disabled = !e.target.checked;
+                if (!e.target.checked) {
+                    noteNumbersToggle.checked = false;
+                    state.showNoteNumbers = false;
+                }
+            });
+
+            noteNumbersToggle.addEventListener('change', (e) => {
+                state.showNoteNumbers = e.target.checked;
+            });
+
+            colorModeToggle.addEventListener('change', (e) => {
+                state.colorMode = e.target.checked;
+            });
+
+            noteAreaSelect.addEventListener('change', (e) => {
+                const selectedValue = e.target.value;
+                if (selectedValue === 'custom') {
+                    // 显示自定义音阶选择弹窗
+                    showCustomScaleModal();
+                } else {
+                    // 非自定义模式，重置状态
+                    state.noteArea = selectedValue;
+                    state.isCustomMode = false;
+                    state.selectedScales = [];
+                }
+            });
+            
+            // 自定义音阶选择弹窗事件监听器
+            closeModalBtn.addEventListener('click', exitCustomMode);
+            confirmScaleBtn.addEventListener('click', confirmCustomScales);
+            
+            // 点击弹窗外部关闭
+            customScaleModal.addEventListener('click', (e) => {
+                if (e.target === customScaleModal) {
+                    exitCustomMode();
+                }
+            });
+            
+            // 游戏结束弹窗事件监听器
+            closeGameOverBtn.addEventListener('click', hideGameOverModal);
+            
+            // 移除点击游戏结束弹窗外部关闭的功能，只允许点击x按钮关闭
+            // gameOverModal.addEventListener('click', (e) => {
+            //     if (e.target === gameOverModal) {
+            //         hideGameOverModal();
+            //     }
+            // });
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('game-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        function startGame() {
+            if (state.isPlaying) return;
+            
+            state.isPlaying = true;
+            state.score = 0;
+            state.lives = 3;
+            state.combo = 0;
+            state.notes = [];
+            state.lastSpawnTime = 0;
+            state.eliminatedNotes = 0; // 重置消除音符计数器
+            state.speedLevel = 0; // 重置速度等级
+            
+            updateUI();
+            startBtn.textContent = "游戏中...";
+            startBtn.disabled = true;
+            difficultySelect.disabled = true;
+            noteAreaSelect.disabled = true;
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            state.isPlaying = false;
+            startBtn.textContent = "重新开始";
+            startBtn.disabled = false;
+            difficultySelect.disabled = false;
+            noteAreaSelect.disabled = false;
+            
+            // 使用自定义弹窗显示游戏结束信息
+            setTimeout(() => {
+                showGameOverModal(state.score);
+            }, 100);
+        }
+
+        function spawnNote() {
+            const now = Date.now();
+            const cfg = CONFIG.difficulties[state.difficulty];
+            
+            // 根据速度等级调整生成速度和移动速度
+            // 每次速度提升，生成间隔减少10%，移动速度增加10%
+            const speedMultiplier = 1 - (state.speedLevel * 0.1);
+            const adjustedSpawnInterval = cfg.spawnInterval * speedMultiplier;
+            
+            if (now - state.lastSpawnTime > adjustedSpawnInterval) {
+                // 根据选择的区域生成音符
+                let isTreble;
+                let noteData;
+                
+                if (state.isCustomMode && state.selectedScales.length > 0) {
+                    // 自定义模式：只从选中的音阶中生成
+                    const selectedScale = state.selectedScales[Math.floor(Math.random() * state.selectedScales.length)];
+                    // 使用保存的谱号信息
+                    isTreble = selectedScale.clef === 'treble';
+                    
+                    // 创建音符数据对象
+                    noteData = {
+                        name: selectedScale.fullName.charAt(0),
+                        offset: selectedScale.offset,
+                        fullName: selectedScale.fullName,
+                        reverse: selectedScale.reverse
+                    };
+                } else {
+                    // 非自定义模式：按照原来的逻辑
+                    if (state.noteArea === 'treble') {
+                        isTreble = true;
+                        const pool = ALL_SCALES.treble;
+                        noteData = pool[Math.floor(Math.random() * pool.length)];
+                    } else if (state.noteArea === 'bass') {
+                        isTreble = false;
+                        const pool = ALL_SCALES.bass;
+                        noteData = pool[Math.floor(Math.random() * pool.length)];
+                    } else {
+                        // 都出的情况下，确保所有音符出现概率相等
+                        // 合并两个谱表的音符，去重（C4只算一次）
+                        const combinedNotes = [];
+                        const noteMap = {};
+                        
+                        // 添加高音谱号的音符
+                        ALL_SCALES.treble.forEach(note => {
+                            if (!noteMap[note.fullName]) {
+                                noteMap[note.fullName] = true;
+                                combinedNotes.push({...note, preferredClef: 'treble'});
+                            }
+                        });
+                        
+                        // 添加低音谱号中高音谱号没有的音符
+                        ALL_SCALES.bass.forEach(note => {
+                            if (!noteMap[note.fullName]) {
+                                noteMap[note.fullName] = true;
+                                combinedNotes.push({...note, preferredClef: 'bass'});
+                            }
+                        });
+                        
+                        // 随机选择一个音符
+                        const selectedNote = combinedNotes[Math.floor(Math.random() * combinedNotes.length)];
+                        noteData = selectedNote;
+                        
+                        // 对于B3、C4和D4，随机选择一个谱号
+                        if (selectedNote.fullName === 'B3' || selectedNote.fullName === 'C4' || selectedNote.fullName === 'D4') {
+                            isTreble = Math.random() > 0.5;
+                        } else {
+                            // 对于其他音符，使用其首选谱号
+                            isTreble = selectedNote.preferredClef === 'treble';
+                        }
+                    }
+                }
+                
+                // 计算音符移动速度：基于屏幕宽度和当前难度的时长范围
+                const screenWidth = canvas.width;
+                const durationRange = cfg.duration;
+                // 在时长范围内随机选择一个值，并根据速度等级调整
+                const baseDuration = durationRange.min + Math.random() * (durationRange.max - durationRange.min);
+                const adjustedDuration = baseDuration * speedMultiplier;
+                // 计算速度：距离 / 时间（毫秒）
+                const speedPerMs = screenWidth / adjustedDuration;
+                
+                const note = new Note(
+                    isTreble ? 'treble' : 'bass',
+                    noteData,
+                    speedPerMs
+                );
+                
+                state.notes.push(note);
+                state.lastSpawnTime = now;
+            }
+        }
+
+        function handleInput(noteName) {
+            if (!state.isPlaying) return;
+            
+            // 检查是否处于输入锁定状态
+            if (Date.now() < state.inputLockedUntil) {
+                return;
+            }
+            
+            // 检查是否是黑键（带#的音符），黑键只显示动效不影响游戏逻辑
+            if (noteName.includes('#')) {
+                // 只显示简单的动效，不影响游戏逻辑
+                return;
+            }
+
+            // 获取所有未消除的音符，按从左到右（X最小）排序
+            const allActiveNotes = state.notes
+                .filter(n => !n.eliminated)
+                .sort((a, b) => a.x - b.x);
+
+            if (allActiveNotes.length > 0) {
+                // 获取最左边的音符
+                const leftmostNote = allActiveNotes[0];
+                
+                if (leftmostNote.name === noteName) {
+                    // 正确：按顺序点击了最左边的音符
+                    leftmostNote.eliminated = true;
+                    
+                    // 计算分数
+                    let points = 10;
+                    if (state.combo > 0) {
+                        points += Math.min(state.combo, 10); // 连击加分，上限+10 (即单次最多20)
+                    }
+                    
+                    state.score += points;
+                    state.combo++;
+                    state.eliminatedNotes++;
+                    showCombo();
+                    
+                    // 检查是否需要提升速度
+                    if (state.eliminatedNotes % state.speedIncreaseThreshold === 0) {
+                        state.speedLevel++;
+                        showSpeedIncrease();
+                    }
+                    
+                    // 播放音符音效
+                    const frequency = NOTE_FREQUENCIES[leftmostNote.fullName];
+                    if (frequency) {
+                        playNote(frequency);
+                    }
+                    
+                    // 创建消失动画
+                createDisappearance(leftmostNote.x, leftmostNote.y, '#2980b9');
+                
+                // 移除音符
+                state.notes = state.notes.filter(n => n !== leftmostNote);
+            } else {
+                    // 错误：点击了非最左边的音符，中断连击
+                    state.combo = 0;
+                    
+                    // 设置输入锁定惩罚
+                    state.inputLockedUntil = Date.now() + 500; // 锁定0.5秒
+                    
+                    // 不再消除其他匹配的音符，只中断连击并设置惩罚
+                }
+            } else {
+                // 屏幕上没有音符，错误点击
+                state.combo = 0;
+                
+                // 设置输入锁定惩罚
+                state.inputLockedUntil = Date.now() + 500; // 锁定0.5秒
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            scoreEl.textContent = state.score;
+            // 显示生命值：实心爱心表示剩余的生命，空心爱心表示失去的生命
+            const maxLives = 3;
+            const lostLives = maxLives - state.lives;
+            livesEl.innerHTML = "♥".repeat(state.lives) + "♡".repeat(lostLives);
+        }
+
+        function showCombo() {
+            if (state.combo > 1) {
+                comboDisplay.textContent = `${state.combo} 连击!`;
+                comboDisplay.classList.remove('combo-anim');
+                void comboDisplay.offsetWidth; // trigger reflow
+                comboDisplay.classList.add('combo-anim');
+            }
+        }
+
+        function showSpeedIncrease() {
+            comboDisplay.textContent = `速度提升!`;
+            comboDisplay.classList.remove('combo-anim');
+            void comboDisplay.offsetWidth; // trigger reflow
+            comboDisplay.classList.add('combo-anim');
+        }
+
+        function drawStaff(startY, clefType) {
+            ctx.strokeStyle = '#aaa'; // 五线谱再灰一点
+            ctx.lineWidth = 1;
+            const spacing = CONFIG.staffLineSpacing;
+            
+            // 绘制5条线
+            // startY 是中心线的位置 (Line 3)
+            // Line 1 (Bottom): startY + 2 * spacing
+            // Line 5 (Top): startY - 2 * spacing
+            
+            const lineLength = canvas.width;
+            
+            for (let i = -2; i <= 2; i++) {
+                let y = startY + (i * spacing);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(lineLength, y);
+                ctx.stroke();
+            }
+
+            // 绘制谱号
+            ctx.fillStyle = '#000000'; // 谱号改为黑色
+            ctx.textAlign = 'left';
+            
+            // 计算五线谱的总高度：5条线，4个间 = 4个线间距
+            const staffHeight = 4 * CONFIG.staffLineSpacing;
+            
+            // 设置目标谱号高度为五线谱高度的1.5倍（可以调整这个比例）
+            const targetClefHeight = staffHeight * 1.5;
+            
+            // 高音谱号和低音谱号在相同字体大小下视觉尺寸不同
+            // 这里为它们设置不同的缩放比例，使视觉大小一致
+            let fontSize;
+            
+            if (clefType === 'treble') {
+                // 高音谱号 𝄞 - 需要稍小的字体大小
+                fontSize = Math.round(targetClefHeight * 0.8);
+                ctx.font = `${fontSize}px serif`;
+                ctx.fillText('𝄞', 8, startY + staffHeight / 2); 
+            } else {
+                // 低音谱号 𝄢 - 需要稍大的字体大小
+                fontSize = Math.round(targetClefHeight * 0.8);
+                ctx.font = `${fontSize}px serif`;
+                ctx.fillText('𝄢', 8, startY + staffHeight / 2);
+            }
+        }
+
+        function gameLoop(timestamp) {
+            if (!state.isPlaying) return;
+            
+            // Calculate delta time
+            const deltaTime = state.lastFrameTime ? timestamp - state.lastFrameTime : 16.67;
+            state.lastFrameTime = timestamp;
+
+            // Clear
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Calculate Staff Positions
+            const centerY = canvas.height / 2;
+            
+            // 根据选择的区域动态计算谱表位置
+            let trebleCenterY = centerY;
+            let bassCenterY = centerY;
+            
+            if (state.noteArea === 'both') {
+                // 都出：两个谱表都显示，位置分开，确保它们的C4位置重合
+                // 使用CONFIG.staffGap来控制两个谱表之间的总间距
+                const totalGap = CONFIG.staffGap;
+                
+                // 设置两个谱表的位置，使它们的C4在同一垂直线上
+                trebleCenterY = centerY - totalGap / 2;
+                bassCenterY = centerY + totalGap / 2;
+            } else if (state.noteArea === 'treble') {
+                // 只出高音区：高音谱表居中显示
+                trebleCenterY = centerY;
+            } else { // 只出低音区
+                // 只出低音区：低音谱表居中显示
+                bassCenterY = centerY;
+            }
+
+            // Draw Staves based on selection
+            if (state.noteArea === 'both' || state.noteArea === 'treble') {
+                drawStaff(trebleCenterY, 'treble');
+            }
+            if (state.noteArea === 'both' || state.noteArea === 'bass') {
+                drawStaff(bassCenterY, 'bass');
+            }
+            
+            // Draw collision boundary (dashed line)
+            ctx.strokeStyle = '#000000'; // 与谱号同色（黑色）
+            ctx.setLineDash([10, 5]); // 虚线样式：10像素实线，5像素空白
+            ctx.lineWidth = 2;
+            const boundaryX = 50; // 碰撞边界位置
+            ctx.beginPath();
+            ctx.moveTo(boundaryX, 0);
+            ctx.lineTo(boundaryX, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]); // 重置为实线
+
+            // Spawn
+            spawnNote();
+
+            // Update & Draw Notes
+            for (let i = state.notes.length - 1; i >= 0; i--) {
+                const note = state.notes[i];
+                note.update(deltaTime);
+
+                // 判定是否漏掉 (到达左边缘)
+                if (note.x < 50) { // 也就是越过了谱号区域
+                    // 创建爆炸效果
+                    createExplosion(note.x, note.y, '#e74c3c'); // 红色爆炸
+                    
+                    state.lives--;
+                    state.combo = 0;
+                    state.notes.splice(i, 1);
+                    updateUI();
+                    
+                    if (state.lives <= 0) {
+                        gameOver();
+                        return; // Stop loop
+                    }
+                    continue;
+                }
+
+                // 绘制音符，根据当前选择的区域使用正确的谱表位置
+                let staffY;
+                if (state.noteArea === 'both') {
+                    // 都出：使用各自的谱表位置
+                    staffY = (note.clef === 'treble') ? trebleCenterY : bassCenterY;
+                } else if (state.noteArea === 'treble' && note.clef === 'treble') {
+                    // 只出高音区：使用高音谱表居中位置
+                    staffY = trebleCenterY;
+                } else if (state.noteArea === 'bass' && note.clef === 'bass') {
+                    // 只出低音区：使用低音谱表居中位置
+                    staffY = bassCenterY;
+                } else {
+                    // 不应该绘制的音符（例如选择高音区但音符是低音）
+                    continue;
+                }
+                
+                note.draw(ctx, staffY);
+            }
+            
+            // Update & Draw Explosions
+            for (let i = state.explosions.length - 1; i >= 0; i--) {
+                const explosion = state.explosions[i];
+                explosion.update(deltaTime);
+                explosion.draw(ctx);
+                
+                if (explosion.life <= 0) {
+                    state.explosions.splice(i, 1);
+                }
+            }
+            
+            // Update & Draw Disappearances
+            for (let i = state.disappearances.length - 1; i >= 0; i--) {
+                const disappearance = state.disappearances[i];
+                disappearance.update(deltaTime);
+                disappearance.draw(ctx);
+                
+                if (disappearance.life <= 0) {
+                    state.disappearances.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 启动
+        init();
+        
+        // 初始画面只调整画布大小，不绘制五线谱
+        window.onload = () => {
+             resizeCanvas();
+        };
+
+    </script>
+</body>
+</html>
