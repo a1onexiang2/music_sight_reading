@@ -230,6 +230,34 @@
             animation: pop 0.5s ease-out forwards;
         }
 
+        /* 霸王龙效果 */
+        #trex-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 120px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        @keyframes trex-pop {
+            0% { transform: translate(-50%, -50%) scale(0) rotate(-20deg); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.5) rotate(10deg); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 0; }
+        }
+
+        .trex-anim {
+            animation: trex-pop 1s ease-out forwards;
+        }
+
+        /* 练习模式隐藏 UI */
+        .practice-mode-active #game-stats,
+        .practice-mode-active #combo-display {
+            display: none !important;
+        }
+
         /* 移动端适配 */
         @media (max-width: 600px) {
             header {
@@ -481,8 +509,11 @@
             <label>
                 <input type="checkbox" id="color-mode-toggle"><label>彩色</label>
             </label>
+            <label>
+                <input type="checkbox" id="practice-mode-toggle"><label>练习</label>
+            </label>
         </div>
-        <div class="stats">
+        <div class="stats" id="game-stats">
             <div class="stat-item">分数<span id="score">0</span></div>
             <div class="stat-item">生命<span id="lives">♥♥♥</span></div>
         </div>
@@ -536,6 +567,7 @@
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         <div id="combo-display">Combo!</div>
+        <div id="trex-display">🦖</div>
     </div>
 
     <footer>
@@ -712,6 +744,8 @@
             lastFrameTime: 0, // 用于计算帧率
             inputLockedUntil: 0, // 输入锁定时间戳（0表示未锁定）
             eliminatedNotes: 0, // 消除的音符数量
+            practiceEliminations: 0, // 练习模式下的消除计数
+            isPracticeMode: false, // 是否为练习模式
             speedLevel: 0, // 速度等级
             speedIncreaseThreshold: 10 // 每消除10个音符提升一次速度
         };
@@ -722,12 +756,15 @@
         const startBtn = document.getElementById('start-btn');
         const scoreEl = document.getElementById('score');
         const livesEl = document.getElementById('lives');
+        const gameStatsEl = document.getElementById('game-stats');
         const difficultySelect = document.getElementById('difficulty');
         const hintToggle = document.getElementById('hint-toggle');
         const noteAreaSelect = document.getElementById('note-area');
         const noteNumbersToggle = document.getElementById('note-numbers-toggle');
         const colorModeToggle = document.getElementById('color-mode-toggle');
+        const practiceModeToggle = document.getElementById('practice-mode-toggle');
         const comboDisplay = document.getElementById('combo-display');
+        const trexDisplay = document.getElementById('trex-display');
         const keys = document.querySelectorAll('.key-btn');
         
         // 自定义音阶选择弹窗元素
@@ -1254,6 +1291,15 @@
                 state.colorMode = e.target.checked;
             });
 
+            practiceModeToggle.addEventListener('change', (e) => {
+                state.isPracticeMode = e.target.checked;
+                if (state.isPracticeMode) {
+                    document.body.classList.add('practice-mode-active');
+                } else {
+                    document.body.classList.remove('practice-mode-active');
+                }
+            });
+
             noteAreaSelect.addEventListener('change', (e) => {
                 const selectedValue = e.target.value;
                 if (selectedValue === 'custom') {
@@ -1305,6 +1351,7 @@
             state.notes = [];
             state.lastSpawnTime = 0;
             state.eliminatedNotes = 0; // 重置消除音符计数器
+            state.practiceEliminations = 0; // 重置练习模式消除计数器
             state.speedLevel = 0; // 重置速度等级
             
             updateUI();
@@ -1458,6 +1505,12 @@
                     state.score += points;
                     state.combo++;
                     state.eliminatedNotes++;
+                    state.practiceEliminations++;
+                    
+                    if (state.isPracticeMode && state.practiceEliminations % 10 === 0) {
+                        showTrex();
+                    }
+                    
                     showCombo();
                     
                     // 检查是否需要提升速度
@@ -1511,6 +1564,12 @@
                 void comboDisplay.offsetWidth; // trigger reflow
                 comboDisplay.classList.add('combo-anim');
             }
+        }
+
+        function showTrex() {
+            trexDisplay.classList.remove('trex-anim');
+            void trexDisplay.offsetWidth; // trigger reflow
+            trexDisplay.classList.add('trex-anim');
         }
 
         function showSpeedIncrease() {
@@ -1632,15 +1691,21 @@
                     // 创建爆炸效果
                     createExplosion(note.x, note.y, '#e74c3c'); // 红色爆炸
                     
-                    state.lives--;
-                    state.combo = 0;
-                    state.notes.splice(i, 1);
-                    updateUI();
-                    
-                    if (state.lives <= 0) {
-                        gameOver();
-                        return; // Stop loop
+                    if (!state.isPracticeMode) {
+                        state.lives--;
+                        state.combo = 0;
+                        updateUI();
+                        
+                        if (state.lives <= 0) {
+                            gameOver();
+                            return; // Stop loop
+                        }
+                    } else {
+                        // 练习模式下，音符到底虽然会爆炸但是不会扣血，不会失败
+                        state.combo = 0; // 虽然不显示 combo，但内部逻辑还是重置一下比较稳妥
                     }
+                    
+                    state.notes.splice(i, 1);
                     continue;
                 }
 
