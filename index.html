@@ -230,26 +230,33 @@
             animation: pop 0.5s ease-out forwards;
         }
 
-        /* 霸王龙效果 */
-        #trex-display {
+        /* 龙队列效果 */
+        #dino-queue {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 120px;
-            opacity: 0;
+            top: 10px;
+            left: 65px; /* 移动到五线谱虚线 (50px) 右侧，留点余量 */
+            display: flex;
+            flex-wrap: wrap; /* 允许换行 */
+            gap: 5px;
             pointer-events: none;
             z-index: 100;
+            padding-right: 15px; /* 右侧留点间距 */
+            width: calc(100% - 65px); /* 宽度扣除左侧偏移 */
+            box-sizing: border-box;
+            justify-content: flex-start; /* 靠左排列 */
         }
 
-        @keyframes trex-pop {
-            0% { transform: translate(-50%, -50%) scale(0) rotate(-20deg); opacity: 0; }
-            50% { transform: translate(-50%, -50%) scale(1.5) rotate(10deg); opacity: 1; }
-            100% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 0; }
+        .dino-item {
+            font-size: 50px;
+            animation: dino-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            display: inline-block;
+            line-height: 1;
         }
 
-        .trex-anim {
-            animation: trex-pop 1s ease-out forwards;
+        @keyframes dino-pop {
+            0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+            70% { transform: scale(1.3) rotate(10deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
 
         /* 练习模式隐藏 UI */
@@ -567,7 +574,7 @@
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         <div id="combo-display">Combo!</div>
-        <div id="trex-display">🦖</div>
+        <div id="dino-queue"></div>
     </div>
 
     <footer>
@@ -745,6 +752,7 @@
             inputLockedUntil: 0, // 输入锁定时间戳（0表示未锁定）
             eliminatedNotes: 0, // 消除的音符数量
             practiceEliminations: 0, // 练习模式下的消除计数
+            dinoQueue: [], // 练习模式下的龙队列
             isPracticeMode: false, // 是否为练习模式
             speedLevel: 0, // 速度等级
             speedIncreaseThreshold: 10 // 每消除10个音符提升一次速度
@@ -764,8 +772,14 @@
         const colorModeToggle = document.getElementById('color-mode-toggle');
         const practiceModeToggle = document.getElementById('practice-mode-toggle');
         const comboDisplay = document.getElementById('combo-display');
-        const trexDisplay = document.getElementById('trex-display');
+        const dinoQueueEl = document.getElementById('dino-queue');
         const keys = document.querySelectorAll('.key-btn');
+
+        // 恐龙相关 Emoji 列表（确保是恐龙或相关元素）
+        const DINO_EMOJIS = [
+            '🦖', '🦕', '🐢', '🧑‍🚀', '🚀', '🪐', '🛸', '🌈', '🎈', '🍭', 
+            '🛰️', '📡', '🔭', '✨', '☄️', '✈️', '🛫', '🛩️', '🚁', '🚢', 
+        ];
         
         // 自定义音阶选择弹窗元素
         const customScaleModal = document.getElementById('custom-scale-modal');
@@ -1352,6 +1366,8 @@
             state.lastSpawnTime = 0;
             state.eliminatedNotes = 0; // 重置消除音符计数器
             state.practiceEliminations = 0; // 重置练习模式消除计数器
+            state.dinoQueue = []; // 重置龙队列
+            dinoQueueEl.innerHTML = ''; // 清空显示的龙
             state.speedLevel = 0; // 重置速度等级
             
             updateUI();
@@ -1507,8 +1523,8 @@
                     state.eliminatedNotes++;
                     state.practiceEliminations++;
                     
-                    if (state.isPracticeMode && state.practiceEliminations % 10 === 0) {
-                        showTrex();
+                    if (state.isPracticeMode && state.practiceEliminations % 3 === 0) {
+                        addDinosaur();
                     }
                     
                     showCombo();
@@ -1566,10 +1582,29 @@
             }
         }
 
-        function showTrex() {
-            trexDisplay.classList.remove('trex-anim');
-            void trexDisplay.offsetWidth; // trigger reflow
-            trexDisplay.classList.add('trex-anim');
+        function addDinosaur() {
+            // 获取最近出过的 5 个 Emoji
+            const recentDinos = state.dinoQueue.slice(-5);
+            
+            // 过滤掉最近出过的 Emoji，从剩余中随机选
+            const availableDinos = DINO_EMOJIS.filter(dino => !recentDinos.includes(dino));
+            
+            // 如果列表配置得太短导致没可选的（虽然目前有 9 个），就退而求其次用全部
+            const pool = availableDinos.length > 0 ? availableDinos : DINO_EMOJIS;
+            const randomDino = pool[Math.floor(Math.random() * pool.length)];
+            
+            state.dinoQueue.push(randomDino);
+
+            // 更新 UI
+            const dinoItem = document.createElement('div');
+            dinoItem.className = 'dino-item';
+            dinoItem.textContent = randomDino;
+            
+            // 随机轻微旋转，让排队看起来更生动
+            const randomRotation = (Math.random() - 0.5) * 20; // -10 到 10 度
+            dinoItem.style.transform = `rotate(${randomRotation}deg)`;
+            
+            dinoQueueEl.appendChild(dinoItem);
         }
 
         function showSpeedIncrease() {
