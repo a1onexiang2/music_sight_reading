@@ -260,9 +260,18 @@
         }
 
         /* 练习模式隐藏 UI */
-        .practice-mode-active #game-stats,
-        .practice-mode-active #combo-display {
+        .practice-mode-active #game-stats {
             display: none !important;
+        }
+        
+        /* 练习模式下隐藏 combo，除非开启了自动加速 */
+        body.practice-mode-active #combo-display {
+            display: none !important;
+        }
+
+        /* 如果在练习模式下开启了加速，显示 Combo 提示 */
+        body.practice-mode-active.auto-speed-active #combo-display {
+            display: block !important;
         }
 
         /* 移动端适配 */
@@ -528,6 +537,9 @@
             <label>
                 <input type="checkbox" id="practice-mode-toggle"><label>练习</label>
             </label>
+            <label>
+                <input type="checkbox" id="auto-speed-toggle" checked><label>加速</label>
+            </label>
         </div>
         <div class="stats" id="game-stats">
             <div class="stat-item">分数<span id="score">0</span></div>
@@ -763,6 +775,7 @@
             practiceEliminations: 0, // 练习模式下的消除计数
             dinoQueue: [], // 练习模式下的龙队列
             isPracticeMode: false, // 是否为练习模式
+            autoSpeedUp: true, // 是否自动加速
             speedLevel: 0, // 速度等级
             speedIncreaseThreshold: 10 // 每消除10个音符提升一次速度
         };
@@ -780,6 +793,7 @@
         const noteNumbersToggle = document.getElementById('note-numbers-toggle');
         const colorModeToggle = document.getElementById('color-mode-toggle');
         const practiceModeToggle = document.getElementById('practice-mode-toggle');
+        const autoSpeedToggle = document.getElementById('auto-speed-toggle');
         const comboDisplay = document.getElementById('combo-display');
         const dinoQueueEl = document.getElementById('dino-queue');
         const keys = document.querySelectorAll('.key-btn');
@@ -1309,6 +1323,9 @@
                 }
             });
 
+            // 初始化加速选项状态
+            state.autoSpeedUp = autoSpeedToggle.checked;
+
             noteNumbersToggle.addEventListener('change', (e) => {
                 state.showNoteNumbers = e.target.checked;
             });
@@ -1319,12 +1336,30 @@
 
             practiceModeToggle.addEventListener('change', (e) => {
                 state.isPracticeMode = e.target.checked;
+                updateBodyClasses();
+            });
+
+            autoSpeedToggle.addEventListener('change', (e) => {
+                state.autoSpeedUp = e.target.checked;
+                updateBodyClasses();
+            });
+
+            function updateBodyClasses() {
                 if (state.isPracticeMode) {
                     document.body.classList.add('practice-mode-active');
                 } else {
                     document.body.classList.remove('practice-mode-active');
                 }
-            });
+                
+                if (state.autoSpeedUp) {
+                    document.body.classList.add('auto-speed-active');
+                } else {
+                    document.body.classList.remove('auto-speed-active');
+                }
+            }
+
+            // 初始化类
+            updateBodyClasses();
 
             noteAreaSelect.addEventListener('change', (e) => {
                 const selectedValue = e.target.value;
@@ -1387,6 +1422,7 @@
             startBtn.disabled = true;
             difficultySelect.disabled = true;
             noteAreaSelect.disabled = true;
+            autoSpeedToggle.disabled = true;
 
             requestAnimationFrame(gameLoop);
         }
@@ -1397,6 +1433,7 @@
             startBtn.disabled = false;
             difficultySelect.disabled = false;
             noteAreaSelect.disabled = false;
+            autoSpeedToggle.disabled = false;
             
             // 使用自定义弹窗显示游戏结束信息
             setTimeout(() => {
@@ -1541,8 +1578,9 @@
                     
                     showCombo();
                     
-                    // 检查是否需要提升速度
-                    if (state.eliminatedNotes % state.speedIncreaseThreshold === 0) {
+            // 检查是否需要提升速度
+                    // 仅当开启了自动加速，且达成连续消除（这里使用combo作为连续消除的依据）时触发
+                    if (state.autoSpeedUp && state.combo > 0 && state.combo % state.speedIncreaseThreshold === 0) {
                         state.speedLevel++;
                         showSpeedIncrease();
                     }
